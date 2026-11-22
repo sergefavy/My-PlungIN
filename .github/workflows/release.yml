@@ -1,10 +1,12 @@
 name: Publier une version
 
-# Pousser un tag « v0.2.0 » (même numéro que tauri.conf.json) publie la
-# version sur GitHub ; les apps installées la proposent alors en mise à jour.
+# À chaque arrivée sur main, si le numéro de version de tauri.conf.json
+# n'a pas encore été publié, on construit, signe et publie cette version
+# (tag v<version> + release + latest.json). Les apps installées la
+# proposent alors en mise à jour. Pour publier : monter la version.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,24 +17,42 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Version déjà publiée ?
+        id: v
+        run: |
+          V=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then
+            echo "v$V existe déjà : rien à publier."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.v.outputs.publish == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - if: steps.v.outputs.publish == 'true'
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
+      - if: steps.v.outputs.publish == 'true'
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - run: npm ci
-      - name: Tests du scanner
+      - if: steps.v.outputs.publish == 'true'
+        run: npm ci
+      - if: steps.v.outputs.publish == 'true'
+        name: Tests du scanner
         run: cargo test -p plugin-core
         working-directory: src-tauri
-      - uses: tauri-apps/tauri-action@v0
+      - if: steps.v.outputs.publish == 'true'
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: v__VERSION__
           releaseName: My_PlugIN v__VERSION__

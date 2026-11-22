@@ -35,8 +35,8 @@ Hors de l'app (`npm run dev` dans un navigateur), l'interface affiche des donné
 ## Publier une nouvelle version (mises à jour automatiques)
 
 1. Monter le numéro de version dans `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` et `package.json`.
-2. Pousser un tag du même numéro : `git tag v0.3.0 && git push origin v0.3.0`.
-3. Le workflow « Publier une version » construit l'app, la signe et publie la version sur GitHub avec `latest.json`.
+2. Fusionner sur `main` : le workflow « Publier une version » voit le nouveau numéro et publie.
+3. Il construit l'app, la signe et publie la version sur GitHub avec `latest.json`.
 4. Les apps installées la proposent au lancement ou via « Rechercher des mises à jour… ».
 
 La signature utilise le secret GitHub `TAURI_SIGNING_PRIVATE_KEY` ; la clé publique est dans `tauri.conf.json`. Sans cette clé, on ne peut plus publier de mise à jour reconnue par les apps installées.
