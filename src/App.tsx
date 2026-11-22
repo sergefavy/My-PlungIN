@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Daw,
   FORMAT_LABEL,
   Format,
   Kind,
   Plugin,
+  hideWindow,
   isDemo,
   listPlugins,
+  loadInDaw,
+  onPluginsUpdated,
   pluginIcon,
   revealInFinder,
   scanPlugins,
   setFavorite,
+  watchDaw,
 } from "./api";
 import "./App.css";
 
@@ -117,6 +122,40 @@ export default function App() {
   const [vendorQuery, setVendorQuery] = useState("");
   const [vendorSort, setVendorSort] = useState<"name" | "count">("name");
   const [selected, setSelected] = useState<string | null>(null);
+  const [daw, setDaw] = useState<Daw | null>(null);
+  const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
+
+  useEffect(() => watchDaw(setDaw), []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const sendToDaw = async (e: Entry) => {
+    if (!daw?.can_load) return;
+    const file =
+      e.files.find((f) => f.format === "Au") ?? e.files[0]!;
+    setToast({ text: `Création de la piste « ${e.name} » dans ${daw.name}…` });
+    try {
+      const r = await loadInDaw(file.id);
+      setToast({
+        text:
+          r === "LOADED"
+            ? `Piste créée avec ${e.name} dans ${daw.name}.`
+            : `Piste créée dans ${daw.name}, mais ${e.name} n'a pas pu être chargé automatiquement.`,
+        error: r !== "LOADED",
+      });
+    } catch (err) {
+      setToast({ text: String(err), error: true });
+    }
+  };
+
+  const onCard = (e: Entry) => {
+    setSelected(e.key);
+    if (daw?.can_load && e.kind === "Instrument") void sendToDaw(e);
+  };
 
   const runScan = async () => {
     setScanning(true);
@@ -134,6 +173,7 @@ export default function App() {
     listPlugins()
       .then((list) => (list.length ? setPlugins(list) : runScan()))
       .catch((e) => setError(String(e)));
+    return onPluginsUpdated(setPlugins);
   }, []);
 
   const entries = useMemo(() => group(plugins), [plugins]);
@@ -182,7 +222,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar" data-tauri-drag-region>
         <svg className="logo" viewBox="0 0 32 32" role="img" aria-label="My_PlugIN">
           <circle cx="16" cy="16" r="12" />
           <path d="M9 18l4-6 3 8 3-10 4 8" />
@@ -200,11 +240,14 @@ export default function App() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-        <span className="status">
+        <span
+          className={`status ${daw ? "on" : ""}`}
+          title={daw ? `Connecté à ${daw.name}` : "Aucun logiciel de musique ouvert"}
+        >
           <i className="dot" />
-          Hors ligne
+          {daw ? daw.name : "Aucun DAW"}
         </span>
-        <span className="spacer" />
+        <span className="spacer" data-tauri-drag-region />
         <div className="segment inset">
           <button className="active">Bibliothèque</button>
           <button disabled title="Bientôt">
@@ -213,6 +256,9 @@ export default function App() {
         </div>
         <button className="raised scan" onClick={runScan} disabled={scanning}>
           {scanning ? "Analyse…" : "Analyser"}
+        </button>
+        <button className="raised hide" onClick={hideWindow} title="Masquer la fenêtre">
+          Masquer<kbd>⌃⌥P</kbd>
         </button>
       </header>
 
@@ -322,7 +368,12 @@ export default function App() {
               <button
                 key={e.key}
                 className={`card ${selected === e.key ? "selected" : ""}`}
-                onClick={() => setSelected(e.key)}
+                onClick={() => onCard(e)}
+                title={
+                  daw?.can_load && e.kind === "Instrument"
+                    ? `Cliquer pour créer une piste dans ${daw.name}`
+                    : undefined
+                }
               >
                 <Thumb entry={e} />
                 <div className="card-meta">
@@ -359,6 +410,11 @@ export default function App() {
                 {sel.vendor} · {KIND_LABEL[sel.kind]}
               </div>
             </div>
+            {daw?.can_load && (
+              <button className="raised send" onClick={() => sendToDaw(sel)}>
+                Créer une piste dans {daw.name}
+              </button>
+            )}
             <div className="row">
               <button className="raised grow" onClick={() => toggleFav(sel)}>
                 {sel.favorite ? "★ Retirer des favoris" : "☆ Ajouter aux favoris"}
@@ -393,6 +449,11 @@ export default function App() {
           </aside>
         )}
       </div>
+      {toast && (
+        <div className={`toast ${toast.error ? "error" : ""}`} role="status">
+          {toast.text}
+        </div>
+      )}
     </div>
   );
 }

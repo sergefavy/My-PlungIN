@@ -1,4 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import ad2 from "./assets/demo/ad2.webp";
 import kontakt from "./assets/demo/kontakt.webp";
@@ -115,3 +117,46 @@ export async function revealInFinder(path: string): Promise<void> {
 }
 
 export const isDemo = demo;
+
+/** Appelé quand un scan lancé depuis la barre des menus se termine. */
+export function onPluginsUpdated(cb: (list: Plugin[]) => void): () => void {
+  if (demo) return () => {};
+  const un = listen<Plugin[]>("plugins-updated", (e) => cb(e.payload));
+  return () => {
+    un.then((f) => f());
+  };
+}
+
+/** Masque la fenêtre ; l'app reste dans la barre des menus. */
+export async function hideWindow(): Promise<void> {
+  if (demo) return;
+  await getCurrentWindow().hide();
+}
+
+export interface Daw {
+  name: string;
+  bundle_id: string;
+  can_load: boolean;
+}
+
+/** Logiciel de musique détecté ; cb est rappelé à chaque changement. */
+export function watchDaw(cb: (d: Daw | null) => void): () => void {
+  if (demo) {
+    cb({ name: "Logic", bundle_id: "com.apple.logic10", can_load: true });
+    return () => {};
+  }
+  invoke<Daw | null>("get_daw").then(cb).catch(() => cb(null));
+  const un = listen<Daw | null>("daw-status", (e) => cb(e.payload));
+  return () => {
+    un.then((f) => f());
+  };
+}
+
+/** Crée une piste avec ce plugin dans le logiciel de musique ouvert. */
+export async function loadInDaw(id: string): Promise<"LOADED" | "TRACK_ONLY" | string> {
+  if (demo) {
+    await new Promise((r) => setTimeout(r, 500));
+    return "LOADED";
+  }
+  return invoke<string>("load_in_daw", { id });
+}
