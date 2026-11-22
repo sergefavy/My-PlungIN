@@ -216,6 +216,23 @@ input:focus-visible {
   color: var(--accent-deep);
 }
 
+.hide {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 6px;
+}
+
+kbd {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--well);
+  box-shadow: var(--inset);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* --- Filtres --- */
 .filters {
   display: flex;

@@ -1,4 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import ad2 from "./assets/demo/ad2.webp";
 import kontakt from "./assets/demo/kontakt.webp";
@@ -115,3 +117,18 @@ export async function revealInFinder(path: string): Promise<void> {
 }
 
 export const isDemo = demo;
+
+/** Appelé quand un scan lancé depuis la barre des menus se termine. */
+export function onPluginsUpdated(cb: (list: Plugin[]) => void): () => void {
+  if (demo) return () => {};
+  const un = listen<Plugin[]>("plugins-updated", (e) => cb(e.payload));
+  return () => {
+    un.then((f) => f());
+  };
+}
+
+/** Masque la fenêtre ; l'app reste dans la barre des menus. */
+export async function hideWindow(): Promise<void> {
+  if (demo) return;
+  await getCurrentWindow().hide();
+}

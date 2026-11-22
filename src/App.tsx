@@ -4,8 +4,10 @@ import {
   Format,
   Kind,
   Plugin,
+  hideWindow,
   isDemo,
   listPlugins,
+  onPluginsUpdated,
   pluginIcon,
   revealInFinder,
   scanPlugins,
@@ -134,6 +136,7 @@ export default function App() {
     listPlugins()
       .then((list) => (list.length ? setPlugins(list) : runScan()))
       .catch((e) => setError(String(e)));
+    return onPluginsUpdated(setPlugins);
   }, []);
 
   const entries = useMemo(() => group(plugins), [plugins]);
@@ -213,6 +216,9 @@ export default function App() {
         </div>
         <button className="raised scan" onClick={runScan} disabled={scanning}>
           {scanning ? "Analyse…" : "Analyser"}
+        </button>
+        <button className="raised hide" onClick={hideWindow} title="Masquer la fenêtre">
+          Masquer<kbd>⌃⌥P</kbd>
         </button>
       </header>
 
