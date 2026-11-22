@@ -1,0 +1,18 @@
+[package]
+name = "plugin-core"
+version = "0.1.0"
+edition = "2024"
+description = "Scanner et inventaire de plugins audio (sans dépendance à l'interface)"
+
+[dependencies]
+base64 = "0.23.1"
+dirs = "7"
+icns = "0.5.0"
+plist = "1"
+rusqlite = { version = "0.43", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"
