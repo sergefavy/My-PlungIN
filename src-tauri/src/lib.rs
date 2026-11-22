@@ -72,6 +72,12 @@ async fn check_updates(app: AppHandle, manual: bool) {
         Ok(u) => u.check().await,
         Err(e) => Err(e),
     };
+    // Aucune version encore publiée sur GitHub (pas de latest.json) :
+    // ce n'est pas une erreur, il n'y a simplement rien de plus récent.
+    let result = match result {
+        Err(e) if e.to_string().contains("valid release JSON") => Ok(None),
+        other => other,
+    };
     match result {
         Ok(Some(update)) => {
             let app2 = app.clone();
