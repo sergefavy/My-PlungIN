@@ -132,3 +132,31 @@ export async function hideWindow(): Promise<void> {
   if (demo) return;
   await getCurrentWindow().hide();
 }
+
+export interface Daw {
+  name: string;
+  bundle_id: string;
+  can_load: boolean;
+}
+
+/** Logiciel de musique détecté ; cb est rappelé à chaque changement. */
+export function watchDaw(cb: (d: Daw | null) => void): () => void {
+  if (demo) {
+    cb({ name: "Logic", bundle_id: "com.apple.logic10", can_load: true });
+    return () => {};
+  }
+  invoke<Daw | null>("get_daw").then(cb).catch(() => cb(null));
+  const un = listen<Daw | null>("daw-status", (e) => cb(e.payload));
+  return () => {
+    un.then((f) => f());
+  };
+}
+
+/** Crée une piste avec ce plugin dans le logiciel de musique ouvert. */
+export async function loadInDaw(id: string): Promise<"LOADED" | "TRACK_ONLY" | string> {
+  if (demo) {
+    await new Promise((r) => setTimeout(r, 500));
+    return "LOADED";
+  }
+  return invoke<string>("load_in_daw", { id });
+}

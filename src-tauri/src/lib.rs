@@ -1,3 +1,5 @@
+mod daw;
+
 use plugin_core::{db, icon, scanner};
 
 use std::sync::Mutex;
@@ -212,6 +214,50 @@ async fn plugin_icon(path: String) -> Option<String> {
         .flatten()
 }
 
+/// DAW actuellement détecté (ou null).
+#[tauri::command]
+fn get_daw() -> Option<daw::Daw> {
+    daw::current()
+}
+
+/// Crée une piste dans le DAW ouvert avec ce plugin.
+/// Renvoie "LOADED" (piste + plugin) ou "TRACK_ONLY" (piste seule).
+#[tauri::command]
+async fn load_in_daw(state: tauri::State<'_, AppState>, id: String) -> CmdResult<String> {
+    let daw = daw::current().ok_or("Aucun logiciel de musique ouvert.")?;
+    if !daw.can_load {
+        return Err(format!("{} n'est pas encore pris en charge.", daw.name));
+    }
+    let plugin = {
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        db::list(&conn)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .find(|r| r.plugin.id == id)
+            .ok_or("Plugin introuvable.")?
+            .plugin
+    };
+    let script = daw::logic_script(&daw.bundle_id, &plugin.vendor, &plugin.name);
+    let out = tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new("osascript").arg("-e").arg(script).output()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    } else {
+        let err = String::from_utf8_lossy(&out.stderr).to_string();
+        if err.contains("-1719") || err.contains("-25211") || err.contains("assistive") {
+            Err("Autorise My_PlugIN dans Réglages Système › Confidentialité et sécurité › Accessibilité, puis réessaie.".into())
+        } else if err.contains("-1743") {
+            Err("Autorise My_PlugIN à contrôler « System Events » dans Réglages Système › Confidentialité et sécurité › Automatisation.".into())
+        } else {
+            Err(format!("Logic n'a pas répondu comme prévu : {}", err.trim()))
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use tauri_plugin_global_shortcut::ShortcutState;
@@ -243,6 +289,7 @@ pub fn run() {
             app.manage(AppState { db: Mutex::new(conn) });
 
             build_tray(app.handle())?;
+            daw::watch(app.handle().clone());
 
             // Premier lancement : on montre la fenêtre pour que l'utilisateur
             // voie le scan. Ensuite l'app démarre discrètement dans la barre.
@@ -265,7 +312,9 @@ pub fn run() {
             scan_plugins,
             list_plugins,
             set_favorite,
-            plugin_icon
+            plugin_icon,
+            get_daw,
+            load_in_daw
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

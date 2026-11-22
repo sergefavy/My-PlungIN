@@ -20,15 +20,17 @@
   font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   font-size: 14px;
   color: var(--ink);
-  background: var(--paper-deep);
+  background: transparent;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  background: transparent;
 }
 
 button {
@@ -50,6 +52,10 @@ input:focus-visible {
 
 .app {
   height: 100vh;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  position: relative;
   display: flex;
   flex-direction: column;
   background-color: var(--paper);
@@ -210,6 +216,41 @@ input:focus-visible {
   height: 9px;
   border-radius: 50%;
   border: 1.5px solid #8a6b73;
+}
+
+.status.on {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.status.on .dot {
+  border: 0;
+  background: radial-gradient(circle at 35% 30%, #b9f5b0 0%, #3fb950 60%, #2a8a39 100%);
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.7);
+}
+
+.send {
+  color: var(--accent-deep);
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 32px));
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 30px var(--shadow);
+  color: var(--ink);
+  z-index: 10;
+}
+
+.toast.error {
+  color: #8c2f2f;
+  border-color: #e2b0b0;
 }
 
 .scan {
