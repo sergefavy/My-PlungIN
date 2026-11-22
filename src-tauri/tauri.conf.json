@@ -46,7 +46,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM3OUVDNDNCMjFGNTQzMzAKUldRd1EvVWhPOFNleDVQRHJUdUxnWVpvMUh0T1dqeVFzSDNSNlJwS1ZRdjkzR0orV0ZDM1orMXgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg4MUU0MDcyNEJEQjMwRTYKUldUbU1OdExja0FlaUFzczFMb0hxMlZ2Nkt0Sldoc0tTdWJFNENqUldtSlRGaGFvTFpHTC9FcVYK",
       "endpoints": [
         "https://github.com/sergefavy/My-PlungIN/releases/latest/download/latest.json"
       ]
