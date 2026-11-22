@@ -50,16 +50,109 @@ fn run_scan(app: &AppHandle) -> CmdResult<Vec<db::Row>> {
     Ok(rows)
 }
 
+/// Cherche une nouvelle version publiée sur GitHub et propose de l'installer.
+/// `manual` : lancé depuis le menu (on répond aussi quand il n'y a rien).
+async fn check_updates(app: AppHandle, manual: bool) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    use tauri_plugin_updater::UpdaterExt;
+
+    let ask = |app: &AppHandle, title: &str, text: String, kind: MessageDialogKind, buttons| {
+        let d = app
+            .dialog()
+            .message(text)
+            .title(title)
+            .kind(kind)
+            .buttons(buttons);
+        d.blocking_show()
+    };
+
+    let result = match app.updater() {
+        Ok(u) => u.check().await,
+        Err(e) => Err(e),
+    };
+    match result {
+        Ok(Some(update)) => {
+            let app2 = app.clone();
+            let text = format!(
+                "La version {} de My_PlugIN est disponible (tu as la {}).\n\nL'installer maintenant ? L'app redémarrera toute seule.",
+                update.version, update.current_version
+            );
+            let yes = tauri::async_runtime::spawn_blocking(move || {
+                ask(
+                    &app2,
+                    "Mise à jour disponible",
+                    text,
+                    MessageDialogKind::Info,
+                    MessageDialogButtons::OkCancelCustom("Installer".into(), "Plus tard".into()),
+                )
+            })
+            .await
+            .unwrap_or(false);
+            if !yes {
+                return;
+            }
+            match update.download_and_install(|_, _| {}, || {}).await {
+                Ok(()) => app.restart(),
+                Err(e) => {
+                    let app2 = app.clone();
+                    let _ = tauri::async_runtime::spawn_blocking(move || {
+                        ask(
+                            &app2,
+                            "Mise à jour",
+                            format!("L'installation a échoué : {e}"),
+                            MessageDialogKind::Error,
+                            MessageDialogButtons::Ok,
+                        )
+                    })
+                    .await;
+                }
+            }
+        }
+        Ok(None) if manual => {
+            let version = app.package_info().version.to_string();
+            let app2 = app.clone();
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                ask(
+                    &app2,
+                    "Mise à jour",
+                    format!("Tu as déjà la dernière version ({version})."),
+                    MessageDialogKind::Info,
+                    MessageDialogButtons::Ok,
+                )
+            })
+            .await;
+        }
+        Err(e) if manual => {
+            let app2 = app.clone();
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                ask(
+                    &app2,
+                    "Mise à jour",
+                    format!("Impossible de vérifier les mises à jour : {e}"),
+                    MessageDialogKind::Warning,
+                    MessageDialogButtons::Ok,
+                )
+            })
+            .await;
+        }
+        _ => {}
+    }
+}
+
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItemBuilder::with_id("open", "Ouvrir My_PlugIN")
         .accelerator("Ctrl+Alt+P")
         .build(app)?;
     let rescan = MenuItemBuilder::with_id("rescan", "Rechercher de nouveaux plugins").build(app)?;
+    let updates =
+        MenuItemBuilder::with_id("updates", "Rechercher des mises à jour…").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "Quitter My_PlugIN").build(app)?;
     let menu = MenuBuilder::new(app)
         .item(&open)
         .separator()
         .item(&rescan)
+        .separator()
+        .item(&updates)
         .separator()
         .item(&quit)
         .build()?;
@@ -79,6 +172,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                         eprintln!("scan échoué : {e}");
                     }
                 });
+            }
+            "updates" => {
+                tauri::async_runtime::spawn(check_updates(app.clone(), true));
             }
             "quit" => app.exit(0),
             _ => {}
@@ -122,6 +218,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcuts([TOGGLE_SHORTCUT])
@@ -151,6 +249,9 @@ pub fn run() {
             if empty {
                 show_main(app.handle());
             }
+
+            // Vérification discrète au lancement : on ne dit rien s'il n'y a rien.
+            tauri::async_runtime::spawn(check_updates(app.handle().clone(), false));
             Ok(())
         })
         .on_window_event(|window, event| {
