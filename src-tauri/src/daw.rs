@@ -100,6 +100,57 @@ pub fn watch(app: AppHandle) {
     });
 }
 
+/// Vérifie que My_PlugIN a l'autorisation « Accessibilité ».
+/// Avec `prompt`, macOS affiche sa fenêtre d'autorisation et ajoute l'app
+/// à la liste des Réglages si elle n'y est pas.
+#[cfg(target_os = "macos")]
+pub fn accessibility_trusted(prompt: bool) -> bool {
+    use std::ffi::c_void;
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXIsProcessTrustedWithOptions(options: *const c_void) -> bool;
+        static kAXTrustedCheckOptionPrompt: *const c_void;
+    }
+    #[link(name = "CoreFoundation", kind = "framework")]
+    unsafe extern "C" {
+        static kCFBooleanTrue: *const c_void;
+        static kCFBooleanFalse: *const c_void;
+        static kCFTypeDictionaryKeyCallBacks: u8;
+        static kCFTypeDictionaryValueCallBacks: u8;
+        fn CFDictionaryCreate(
+            allocator: *const c_void,
+            keys: *const *const c_void,
+            values: *const *const c_void,
+            count: isize,
+            key_callbacks: *const c_void,
+            value_callbacks: *const c_void,
+        ) -> *const c_void;
+        fn CFRelease(cf: *const c_void);
+    }
+    unsafe {
+        let keys = [kAXTrustedCheckOptionPrompt];
+        let values = [if prompt { kCFBooleanTrue } else { kCFBooleanFalse }];
+        let dict = CFDictionaryCreate(
+            std::ptr::null(),
+            keys.as_ptr(),
+            values.as_ptr(),
+            1,
+            &kCFTypeDictionaryKeyCallBacks as *const u8 as *const c_void,
+            &kCFTypeDictionaryValueCallBacks as *const u8 as *const c_void,
+        );
+        let ok = AXIsProcessTrustedWithOptions(dict);
+        if !dict.is_null() {
+            CFRelease(dict);
+        }
+        ok
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn accessibility_trusted(_prompt: bool) -> bool {
+    true
+}
+
 /// Script AppleScript (via System Events, donc l'Accessibilité de macOS)
 /// qui crée une piste d'instrument logiciel dans Logic puis charge le
 /// plugin dans l'emplacement instrument de la nouvelle piste.

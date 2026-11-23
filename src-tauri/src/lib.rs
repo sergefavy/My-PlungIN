@@ -266,6 +266,9 @@ async fn load_in_daw(state: tauri::State<'_, AppState>, id: String) -> CmdResult
             .ok_or("Plugin introuvable.")?
             .plugin
     };
+    if !daw::accessibility_trusted(true) {
+        return Err("macOS demande l'autorisation : active My_PlugIN dans Réglages Système › Confidentialité et sécurité › Accessibilité, puis quitte et relance My_PlugIN.".into());
+    }
     let script = daw::logic_script(&daw.bundle_id, &plugin.vendor, &plugin.name);
     let out = tauri::async_runtime::spawn_blocking(move || {
         std::process::Command::new("osascript").arg("-e").arg(script).output()
@@ -278,7 +281,10 @@ async fn load_in_daw(state: tauri::State<'_, AppState>, id: String) -> CmdResult
     } else {
         let err = String::from_utf8_lossy(&out.stderr).to_string();
         if err.contains("-1719") || err.contains("-25211") || err.contains("assistive") {
-            Err("Autorise My_PlugIN dans Réglages Système › Confidentialité et sécurité › Accessibilité, puis réessaie.".into())
+            Err(format!(
+                "macOS bloque encore l'accès (Accessibilité) alors que My_PlugIN est autorisé. Détail : {}",
+                err.trim()
+            ))
         } else if err.contains("-1743") {
             Err("Autorise My_PlugIN à contrôler « System Events » dans Réglages Système › Confidentialité et sécurité › Automatisation.".into())
         } else {
