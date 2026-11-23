@@ -17,8 +17,31 @@ type CmdResult<T> = Result<T, String>;
 /// Raccourci global pour afficher ou masquer la fenêtre.
 const TOGGLE_SHORTCUT: &str = "ctrl+alt+p";
 
+/// Fenêtre flottante façon panneau : visible sur tous les bureaux, y compris
+/// par-dessus une app en plein écran, et au-dessus des fenêtres normales.
+#[cfg(target_os = "macos")]
+#[allow(unused_unsafe)]
+fn make_floating_panel(window: &tauri::WebviewWindow) {
+    use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
+    let Ok(ptr) = window.ns_window() else { return };
+    // Le pointeur vient de Tauri et reste valide tant que la fenêtre existe.
+    let ns: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
+    unsafe {
+        ns.setCollectionBehavior(
+            NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::FullScreenAuxiliary,
+        );
+        // NSStatusWindowLevel (25) : passe aussi au-dessus d'une app plein écran.
+        ns.setLevel(25);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn make_floating_panel(_window: &tauri::WebviewWindow) {}
+
 fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
+        make_floating_panel(&w);
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
