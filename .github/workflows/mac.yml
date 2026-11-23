@@ -34,3 +34,8 @@ jobs:
         with:
           name: My_PlugIN-mac
           path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+      - name: Vérifier la signature de l'app
+        run: |
+          APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/My_PlugIN.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -d -r- "$APP"
