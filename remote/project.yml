@@ -1,0 +1,78 @@
+name: Telecommande
+options:
+  bundleIdPrefix: com.sergefavy.telecommande
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+    watchOS: "10.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  # Le pont : petite appli de barre des menus sur le Mac.
+  Pont:
+    type: application
+    platform: macOS
+    sources: [Pont, Shared]
+    info:
+      path: Pont/Info.plist
+      properties:
+        CFBundleDisplayName: Pont Télécommande
+        LSUIElement: true
+        NSAppleEventsUsageDescription: Le pont ouvre Plugindex quand il n'est pas lancé.
+    entitlements:
+      path: Pont/Pont.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sergefavy.telecommande.pont
+        ENABLE_HARDENED_RUNTIME: true
+
+  # L'appli iPhone + iPad.
+  Desk:
+    type: application
+    platform: iOS
+    sources: [Desk, Shared]
+    info:
+      path: Desk/Info.plist
+      properties:
+        CFBundleDisplayName: Desk
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSLocalNetworkUsageDescription: Desk cherche le pont de ton Mac sur le Wi-Fi pour piloter Plugindex.
+        NSBonjourServices: [_plugremote._tcp]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sergefavy.telecommande.desk
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - target: DeskWatch
+
+  # L'appli Apple Watch (passe par l'iPhone).
+  DeskWatch:
+    type: application
+    platform: watchOS
+    sources: [DeskWatch, Shared]
+    info:
+      path: DeskWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Desk
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.sergefavy.telecommande.desk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sergefavy.telecommande.desk.watchkitapp
+
+schemes:
+  Pont:
+    build: { targets: { Pont: all } }
+  Desk:
+    build: { targets: { Desk: all } }
+  DeskWatch:
+    build: { targets: { DeskWatch: all } }

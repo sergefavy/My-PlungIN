@@ -1,0 +1,42 @@
+name: Télécommande
+
+on:
+  push:
+    paths: ["remote/**", ".github/workflows/remote.yml"]
+  pull_request:
+    paths: ["remote/**", ".github/workflows/remote.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: remote
+    steps:
+      - uses: actions/checkout@v4
+      - name: Générer le projet Xcode
+        run: brew install xcodegen && xcodegen generate
+      - name: Pont (Mac)
+        run: >-
+          xcodebuild -project Telecommande.xcodeproj -scheme Pont -configuration Release
+          -destination 'generic/platform=macOS' -derivedDataPath build
+          CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build
+      - name: Desk (iPhone, iPad et Watch)
+        run: >-
+          xcodebuild -project Telecommande.xcodeproj -scheme Desk -configuration Debug
+          -destination 'generic/platform=iOS Simulator' -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO build
+      - name: Desk Watch seule
+        run: >-
+          xcodebuild -project Telecommande.xcodeproj -scheme DeskWatch -configuration Debug
+          -destination 'generic/platform=watchOS Simulator' -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO build
+      - name: Emballer le pont
+        run: |
+          cd build/Build/Products/Release
+          ditto -c -k --keepParent Pont.app Pont-Telecommande.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pont-Telecommande-mac
+          path: remote/build/Build/Products/Release/Pont-Telecommande.zip
