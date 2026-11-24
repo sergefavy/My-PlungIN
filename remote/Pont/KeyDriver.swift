@@ -45,13 +45,37 @@ enum KeyDriver {
             return (false, "Raccourci Plugindex illisible : \(Library.openHotkey())")
         }
 
-        post(key: hotkey.keyCode, flags: hotkey.flags)
-        try? await Task.sleep(for: .milliseconds(openDelay))
+        // Le raccourci ouvre ET ferme la fenêtre de Plugindex : on ne l'envoie que si elle n'est pas
+        // déjà devant, et on ne tape jamais rien tant que Plugindex n'a pas le clavier
+        // (sinon les lettres partiraient dans Logic, où ce sont des raccourcis).
+        if !plugindexFrontmost {
+            post(key: hotkey.keyCode, flags: hotkey.flags)
+            guard await waitForPlugindex(timeout: openDelay * 3) else {
+                return (false, "La fenêtre de Plugindex ne s'est pas ouverte : rien n'a été tapé. Vérifie le raccourci \(Library.openHotkey()).")
+            }
+            try? await Task.sleep(for: .milliseconds(openDelay))
+        }
+        guard plugindexFrontmost else { return (false, "Plugindex n'a plus le clavier : rien n'a été tapé.") }
         post(key: CGKeyCode(kVK_ANSI_A), flags: .maskCommand)   // remplace l'ancienne recherche
         type(name)
         try? await Task.sleep(for: .milliseconds(searchDelay))
+        guard plugindexFrontmost else { return (false, "Plugindex a perdu le clavier avant Entrée : chargement annulé.") }
         post(key: CGKeyCode(kVK_Return), flags: [])
         return (true, "\(name) envoyé à Plugindex")
+    }
+
+    static var plugindexFrontmost: Bool {
+        NSWorkspace.shared.frontmostApplication?.bundleIdentifier == plugindexBundle
+    }
+
+    private static func waitForPlugindex(timeout: Int) async -> Bool {
+        var waited = 0
+        while waited < timeout {
+            if plugindexFrontmost { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+            waited += 50
+        }
+        return plugindexFrontmost
     }
 
     // MARK: - Événements clavier
