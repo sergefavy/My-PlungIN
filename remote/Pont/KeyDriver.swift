@@ -37,7 +37,7 @@ enum KeyDriver {
         }
         guard plugindexRunning else {
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: plugindexBundle) {
-                NSWorkspace.shared.openApplication(at: url, configuration: .init())
+                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
             }
             return (false, "Plugindex n'était pas ouvert : je viens de le lancer, réessaie dans quelques secondes.")
         }
